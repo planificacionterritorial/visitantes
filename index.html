@@ -1,11 +1,22 @@
-<div id="contador" style="font-family:Arial; font-size:14px; font-weight:bold;
-     color:#FFFFFF; background:#0E4C5B; padding:10px 18px; border-radius:6px; display:inline-block;">
-  Cargando visitas...
+<!-- Calcite Components -->
+<script type="module" src="https://js.arcgis.com/calcite-components/2.4.0/calcite.esm.js"></script>
+<link rel="stylesheet" href="https://js.arcgis.com/calcite-components/2.4.0/calcite.css" />
+
+<div id="contador" style="
+     font-family:Arial; font-size:14px; font-weight:bold;
+     color:#FFFFFF; background:#0E4C5B;
+     padding:10px 18px; border-radius:6px;
+     display:flex; align-items:center; gap:6px;">
+  
+  <!-- Ícono Calcite a la izquierda -->
+  <calcite-icon icon="select-visible" scale="s" style="color:white;"></calcite-icon>
+
+  <span id="contador-texto">Cargando visitas...</span>
 </div>
 
 <script>
 (async () => {
-  const BASE_VISITAS = 7464;  // ← suma inicial
+  const BASE_VISITAS = 7464;
   const tableUrl = "https://services8.arcgis.com/dD73nM2okbQuDi0w/arcgis/rest/services/Visitas_Geoportal/FeatureServer/0";
 
   async function getLayerInfo() {
@@ -17,8 +28,10 @@
     const fields = layerInfo?.fields || [];
     const countFieldObj = fields.find(f => /count|cantidad|cnt|numero/i.test(f.name) && f.type && f.type.includes("Integer"));
     const countField = countFieldObj ? countFieldObj.name : (fields.find(f => f.type && f.type.includes("Integer")) || {}).name;
+
     const dateFieldObj = fields.find(f => /visit|fecha|date/i.test(f.name) && f.type && f.type.includes("Date"));
     const dateField = dateFieldObj ? dateFieldObj.name : (fields.find(f => f.type && f.type.includes("Date")) || {}).name;
+
     return { countField, dateField };
   }
 
@@ -43,7 +56,7 @@
       const r1 = await fetch(tableUrl + "/query?" + params1.toString());
       const j1 = await r1.json();
       if (typeof j1.count === "number") return j1.count;
-    } catch (e) { console.warn("returnCountOnly falló:", e); }
+    } catch {}
 
     if (countField) {
       try {
@@ -52,7 +65,7 @@
         const r2 = await fetch(tableUrl + "/query?" + params2.toString());
         const j2 = await r2.json();
         if (j2?.features?.[0]?.attributes?.total != null) return j2.features[0].attributes.total || 0;
-      } catch (e) { console.warn("outStatistics falló:", e); }
+      } catch {}
     }
 
     try {
@@ -60,27 +73,26 @@
       const r3 = await fetch(tableUrl + "/query?" + params3.toString());
       const j3 = await r3.json();
       if (j3?.objectIds) return j3.objectIds.length;
-    } catch (e) { console.warn("fallback features falló:", e); }
+    } catch {}
 
     return 0;
   }
 
   try {
     const layerInfo = await getLayerInfo();
-    if (!layerInfo) throw new Error("No se obtuvo metadata de la capa.");
+    if (!layerInfo) throw new Error("No metadata.");
 
     const { countField, dateField } = detectFields(layerInfo);
 
-    const addRes = await registerVisit(countField, dateField);
+    await registerVisit(countField, dateField);
 
     const total = await getVisitCount(countField);
 
-    // ← Sumamos las visitas previas
-    document.getElementById("contador").textContent = `${total + BASE_VISITAS} Visitas`;
+    document.getElementById("contador-texto").textContent =
+      `${total + BASE_VISITAS} Visitas`;
 
   } catch (err) {
-    console.error("Error en contador:", err);
-    document.getElementById("contador").textContent = "Error de conexión";
+    document.getElementById("contador-texto").textContent = "Error de conexión";
   }
 })();
 </script>
