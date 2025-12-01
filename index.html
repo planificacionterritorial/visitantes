@@ -1,4 +1,4 @@
-<div id="contador" style="font-family:Arial; font-size:22px; font-weight:bold;
+<div id="contador" style="font-family:Arial; font-size:18px; font-weight:bold;
      color:#FFFFFF; background:#0E4C5B; padding:12px 20px; border-radius:8px; display:inline-block;">
   Cargando visitas...
 </div>
@@ -105,7 +105,7 @@
     }
 
     const total = await getVisitCount(countField);
-    document.getElementById("contador").textContent = `Visitas: ${total}`;
+    document.getElementById("contador").textContent = `${total} Visitas`;
   } catch (err) {
     console.error("Error en contador:", err);
     document.getElementById("contador").textContent = "Error de conexión";
