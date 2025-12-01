@@ -5,29 +5,25 @@
 
 <script>
 (async () => {
+  const BASE_VISITAS = 7464;  // ← suma inicial
   const tableUrl = "https://services8.arcgis.com/dD73nM2okbQuDi0w/arcgis/rest/services/Visitas_Geoportal/FeatureServer/0";
 
-  // 1) Obtener metadata para conocer nombres de campos
   async function getLayerInfo() {
     const res = await fetch(tableUrl + "?f=json");
     return res.ok ? res.json() : null;
   }
 
-  // 2) Determinar nombre de campo 'count' y 'visit_date'
   function detectFields(layerInfo) {
     const fields = layerInfo?.fields || [];
-    // buscar campo entero relacionado con 'count' (count, count_, cantidad, cnt)
     const countFieldObj = fields.find(f => /count|cantidad|cnt|numero/i.test(f.name) && f.type && f.type.includes("Integer"));
     const countField = countFieldObj ? countFieldObj.name : (fields.find(f => f.type && f.type.includes("Integer")) || {}).name;
-    // buscar fecha
     const dateFieldObj = fields.find(f => /visit|fecha|date/i.test(f.name) && f.type && f.type.includes("Date"));
     const dateField = dateFieldObj ? dateFieldObj.name : (fields.find(f => f.type && f.type.includes("Date")) || {}).name;
     return { countField, dateField };
   }
 
-  // 3) Registrar visita (usa los nombres de campo detectados)
   async function registerVisit(countField, dateField) {
-    const now = Date.now(); // fecha como epoch ms -> ArcGIS acepta si el campo es Date
+    const now = Date.now();
     const attributes = {};
     if (dateField) attributes[dateField] = now;
     if (countField) attributes[countField] = 1;
@@ -41,71 +37,47 @@
     return r.json();
   }
 
-  // 4) Obtener total de visitas: varios métodos de respaldo
   async function getVisitCount(countField) {
-    // Método A: returnCountOnly (número de registros, funciona aunque countField sea null)
     try {
       const params1 = new URLSearchParams({ f: "json", where: "1=1", returnCountOnly: "true" });
       const r1 = await fetch(tableUrl + "/query?" + params1.toString());
       const j1 = await r1.json();
       if (typeof j1.count === "number") return j1.count;
-    } catch (e) {
-      console.warn("returnCountOnly falló:", e);
-    }
+    } catch (e) { console.warn("returnCountOnly falló:", e); }
 
-    // Método B: outStatistics sum del campo count (si existe)
     if (countField) {
       try {
-        const outStats = JSON.stringify([{
-          statisticType: "sum",
-          onStatisticField: countField,
-          outStatisticFieldName: "total"
-        }]);
+        const outStats = JSON.stringify([{ statisticType: "sum", onStatisticField: countField, outStatisticFieldName: "total" }]);
         const params2 = new URLSearchParams({ f: "json", where: "1=1", outStatistics: outStats });
         const r2 = await fetch(tableUrl + "/query?" + params2.toString());
         const j2 = await r2.json();
-        if (j2?.features && j2.features[0] && j2.features[0].attributes && (j2.features[0].attributes.total !== null)) {
-          return j2.features[0].attributes.total || 0;
-        }
-      } catch (e) {
-        console.warn("outStatistics falló:", e);
-      }
+        if (j2?.features?.[0]?.attributes?.total != null) return j2.features[0].attributes.total || 0;
+      } catch (e) { console.warn("outStatistics falló:", e); }
     }
 
-    // Método C: contar features devueltos (fallback)
     try {
       const params3 = new URLSearchParams({ f: "json", where: "1=1", resultRecordCount: 1, returnIdsOnly: true });
       const r3 = await fetch(tableUrl + "/query?" + params3.toString());
       const j3 = await r3.json();
-      if (j3?.objectIds) return j3.objectIds.length; // sólo aproximado
-    } catch (e) {
-      console.warn("fallback features falló:", e);
-    }
+      if (j3?.objectIds) return j3.objectIds.length;
+    } catch (e) { console.warn("fallback features falló:", e); }
 
     return 0;
   }
 
-  // Ejecutar flujo
   try {
     const layerInfo = await getLayerInfo();
-    if (!layerInfo) throw new Error("No se obtuvo metadata de la capa (posible CORS o token).");
+    if (!layerInfo) throw new Error("No se obtuvo metadata de la capa.");
 
     const { countField, dateField } = detectFields(layerInfo);
-    console.log("Campos detectados:", { countField, dateField });
 
-    // Registrar visita y verificar respuesta
     const addRes = await registerVisit(countField, dateField);
-    console.log("Respuesta addFeatures:", addRes);
-
-    if (addRes?.addResults && addRes.addResults[0] && addRes.addResults[0].success) {
-      // OK agregado
-    } else {
-      // Si la inserción falló, loguear y continuar a intentar leer el total
-      console.warn("No se confirmó addFeatures como éxito", addRes);
-    }
 
     const total = await getVisitCount(countField);
-    document.getElementById("contador").textContent = `${total} Visitas`;
+
+    // ← Sumamos las visitas previas
+    document.getElementById("contador").textContent = `${total + BASE_VISITAS} Visitas`;
+
   } catch (err) {
     console.error("Error en contador:", err);
     document.getElementById("contador").textContent = "Error de conexión";
