@@ -2,17 +2,27 @@
 <script type="module" src="https://js.arcgis.com/calcite-components/2.4.0/calcite.esm.js"></script>
 <link rel="stylesheet" href="https://js.arcgis.com/calcite-components/2.4.0/calcite.css" />
 
+<!-- CONTENEDOR CLICKEABLE -->
+<a href="https://planificacionterritorial.github.io/visitantes/" 
+   target="_blank" 
+   style="text-decoration:none;">
+
 <div id="contador" style="
      font-family:Arial; font-size:14px; font-weight:bold;
-     color:#FFFFFF; background:#0E4C5B;
+     color:#FFFFFF; background:transparent;   /* << FONDO TRANSPARENTE */
      padding:10px 18px; border-radius:6px;
-     display:flex; align-items:center; gap:6px;">
+     display:flex; align-items:center; gap:6px;
+     border:1px solid #0E4C5B;       /* borde opcional para visibilidad */
+     cursor:pointer;
+">
   
-  <!-- Ícono Calcite a la izquierda -->
+  <!-- Ícono Calcite -->
   <calcite-icon icon="view-mixed" scale="s" style="color:white;"></calcite-icon>
 
   <span id="contador-texto">Cargando visitas...</span>
 </div>
+
+</a>
 
 <script>
 (async () => {
@@ -26,11 +36,11 @@
 
   function detectFields(layerInfo) {
     const fields = layerInfo?.fields || [];
-    const countFieldObj = fields.find(f => /count|cantidad|cnt|numero/i.test(f.name) && f.type && f.type.includes("Integer"));
-    const countField = countFieldObj ? countFieldObj.name : (fields.find(f => f.type && f.type.includes("Integer")) || {}).name;
+    const countFieldObj = fields.find(f => /count|cantidad|cnt|numero/i.test(f.name) && f.type.includes("Integer"));
+    const countField = countFieldObj ? countFieldObj.name : (fields.find(f => f.type.includes("Integer")) || {}).name;
 
-    const dateFieldObj = fields.find(f => /visit|fecha|date/i.test(f.name) && f.type && f.type.includes("Date"));
-    const dateField = dateFieldObj ? dateFieldObj.name : (fields.find(f => f.type && f.type.includes("Date")) || {}).name;
+    const dateFieldObj = fields.find(f => /visit|fecha|date/i.test(f.name) && f.type.includes("Date"));
+    const dateField = dateFieldObj ? dateFieldObj.name : (fields.find(f => f.type.includes("Date")) || {}).name;
 
     return { countField, dateField };
   }
