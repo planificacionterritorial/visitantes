@@ -2,32 +2,52 @@
 <script type="module" src="https://js.arcgis.com/calcite-components/2.4.0/calcite.esm.js"></script>
 <link rel="stylesheet" href="https://js.arcgis.com/calcite-components/2.4.0/calcite.css" />
 
-<!-- CONTENEDOR CLICKEABLE -->
-<a href="https://planificacionterritorial.github.io/visitantes/" 
-   target="_blank" 
-   style="text-decoration:none;">
+<!-- CONTENEDOR CENTRADO -->
+<div style="display:flex; justify-content:center; width:100%;">
 
-<div id="contador" style="
-     font-family:Arial; font-size:14px; font-weight:bold;
-     color:#FFFFFF; background:transparent;   /* << FONDO TRANSPARENTE */
-     padding:10px 18px; border-radius:6px;
-     display:flex; align-items:center; gap:6px;
-     border:0px solid #0E4C5B;       /* borde opcional para visibilidad */
-     cursor:pointer;
-">
-  
-  <!-- Ícono Calcite -->
-  <calcite-icon icon="view-mixed" scale="s" style="color:white;"></calcite-icon>
+  <!-- BOTÓN / ETIQUETA DE VISITAS (NO CLICKEABLE) -->
+  <div id="contador" style="
+      font-family:Arial; 
+      font-size:14px; 
+      font-weight:bold;
+      color:#FFFFFF; 
+      background:transparent; 
+      padding:8px 14px;
+      border-radius:6px;
+      border:1px solid #0E4C5B;
+      display:flex; 
+      align-items:center; 
+      gap:6px;
+      cursor:default;
+      width:auto;             /* ajuste automático al contenido */
+      text-align:center;">
+    
+    <calcite-icon icon="view-mixed" scale="s" style="color:white;"></calcite-icon>
+    <span id="contador-texto">Cargando visitas...</span>
 
-  <span id="contador-texto">Cargando visitas...</span>
+  </div>
+
 </div>
-
-</a>
 
 <script>
 (async () => {
+
+  /* ===============================
+     ENMASCARAMIENTO DEL URL
+     =============================== */
+
+  // URL dividido para evitar que nadie lo copie completo
+  const p1 = "https://services8.arcgis.com/";
+  const p2 = "dD73nM2okbQuDi0w/arcgis/rest/services/";
+  const p3 = "Visitas_Geoportal/FeatureServer/0";
+  const tableUrl = p1 + p2 + p3;
+
+  // Visitas previas antes de crear contador
   const BASE_VISITAS = 7464;
-  const tableUrl = "https://services8.arcgis.com/dD73nM2okbQuDi0w/arcgis/rest/services/Visitas_Geoportal/FeatureServer/0";
+
+  /* ===============================
+     FUNCIONES DEL CONTADOR
+     =============================== */
 
   async function getLayerInfo() {
     const res = await fetch(tableUrl + "?f=json");
@@ -36,11 +56,18 @@
 
   function detectFields(layerInfo) {
     const fields = layerInfo?.fields || [];
-    const countFieldObj = fields.find(f => /count|cantidad|cnt|numero/i.test(f.name) && f.type.includes("Integer"));
-    const countField = countFieldObj ? countFieldObj.name : (fields.find(f => f.type.includes("Integer")) || {}).name;
 
-    const dateFieldObj = fields.find(f => /visit|fecha|date/i.test(f.name) && f.type.includes("Date"));
-    const dateField = dateFieldObj ? dateFieldObj.name : (fields.find(f => f.type.includes("Date")) || {}).name;
+    const countFieldObj = fields.find(
+      f => /count|cantidad|cnt|numero/i.test(f.name) && f.type.includes("Integer")
+    );
+    const countField = countFieldObj ? countFieldObj.name :
+                       (fields.find(f => f.type.includes("Integer")) || {}).name;
+
+    const dateFieldObj = fields.find(
+      f => /visit|fecha|date/i.test(f.name) && f.type.includes("Date")
+    );
+    const dateField = dateFieldObj ? dateFieldObj.name :
+                      (fields.find(f => f.type.includes("Date")) || {}).name;
 
     return { countField, dateField };
   }
@@ -48,6 +75,7 @@
   async function registerVisit(countField, dateField) {
     const now = Date.now();
     const attributes = {};
+
     if (dateField) attributes[dateField] = now;
     if (countField) attributes[countField] = 1;
 
@@ -61,32 +89,45 @@
   }
 
   async function getVisitCount(countField) {
+    // Método 1
     try {
-      const params1 = new URLSearchParams({ f: "json", where: "1=1", returnCountOnly: "true" });
-      const r1 = await fetch(tableUrl + "/query?" + params1.toString());
-      const j1 = await r1.json();
-      if (typeof j1.count === "number") return j1.count;
+      const params = new URLSearchParams({
+        f: "json",
+        where: "1=1",
+        returnCountOnly: "true"
+      });
+      const res = await fetch(tableUrl + "/query?" + params.toString());
+      const json = await res.json();
+      if (typeof json.count === "number") return json.count;
     } catch {}
 
-    if (countField) {
-      try {
-        const outStats = JSON.stringify([{ statisticType: "sum", onStatisticField: countField, outStatisticFieldName: "total" }]);
-        const params2 = new URLSearchParams({ f: "json", where: "1=1", outStatistics: outStats });
-        const r2 = await fetch(tableUrl + "/query?" + params2.toString());
-        const j2 = await r2.json();
-        if (j2?.features?.[0]?.attributes?.total != null) return j2.features[0].attributes.total || 0;
-      } catch {}
-    }
-
+    // Método 2
     try {
-      const params3 = new URLSearchParams({ f: "json", where: "1=1", resultRecordCount: 1, returnIdsOnly: true });
-      const r3 = await fetch(tableUrl + "/query?" + params3.toString());
-      const j3 = await r3.json();
-      if (j3?.objectIds) return j3.objectIds.length;
+      const outStats = JSON.stringify([{
+        statisticType: "sum",
+        onStatisticField: countField,
+        outStatisticFieldName: "total"
+      }]);
+
+      const params = new URLSearchParams({
+        f: "json",
+        where: "1=1",
+        outStatistics: outStats
+      });
+
+      const res = await fetch(tableUrl + "/query?" + params.toString());
+      const json = await res.json();
+
+      if (json?.features?.[0]?.attributes?.total != null)
+        return json.features[0].attributes.total;
     } catch {}
 
     return 0;
   }
+
+  /* ===============================
+     EJECUCIÓN GENERAL
+     =============================== */
 
   try {
     const layerInfo = await getLayerInfo();
@@ -104,5 +145,6 @@
   } catch (err) {
     document.getElementById("contador-texto").textContent = "Error de conexión";
   }
+
 })();
 </script>
